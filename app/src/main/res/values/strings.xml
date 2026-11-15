@@ -1,0 +1,37 @@
+<resources>
+    <string name="app_name">EduTech Mindset</string>
+    <string name="app_subtitle_ar">عقلية التعليم والتكنولوجيا</string>
+    <string name="supervisor_label">إدارة الأستاذ باسل أشرف الفقعاوي</string>
+    <string name="supervisor_name">الأستاذ باسل أشرف الفقعاوي</string>
+    <string name="supervisor_role">مؤسس ومدير منصة EduTech Mindset</string>
+    <string name="welcome_cta">ابدأ الرحلة التعليمية</string>
+    <string name="welcome_replay">عرض شاشة الترحيب والموشن</string>
+    <string name="nav_home">الرئيسية</string>
+    <string name="nav_courses">المسارات</string>
+    <string name="nav_media">الوسائط</string>
+    <string name="nav_notes">ملاحظاتي</string>
+    <string name="nav_mentor">الأكاديمية</string>
+    <string name="local_storage_badge">تخزين محلي آمن على جهازك</string>
+    <string name="add_media_title">إضافة وسائط إلى المكتبة المحلية</string>
+    <string name="pick_photo_video">صورة أو فيديو</string>
+    <string name="pick_audio_pdf">ملف صوتي أو PDF</string>
+    <string name="add_course_title">إضافة درس أو مسار محلي</string>
+    <string name="add_note_title">تدوين ملاحظة تعليمية</string>
+    <string name="empty_media_title">مكتبتك جاهزة للوسائط</string>
+    <string name="empty_media_desc">أضف فيديوهات تعليمية، تسجيلات صوتية، صور أو ملفات PDF لحفظها محلياً على هاتفك.</string>
+    <string name="empty_notes_title">لا توجد ملاحظات بعد</string>
+    <string name="empty_notes_desc">دوّن أفكارك وملخصاتك التعليمية مع إمكانية إرفاق صور ووسائط محلية.</string>
+    <string name="tts_course_reader_title">الاستماع الصوتي لوصف المسار</string>
+    <string name="tts_module_reader_title">الاستماع الصوتي لملخص الوحدة</string>
+    <string name="tts_listen_course">استماع لوصف المسار</string>
+    <string name="tts_listen_module_summary">استماع للملخص</string>
+    <string name="tts_listen_full_module">استماع للدرس كاملاً</string>
+    <string name="tts_stop_reading">إيقاف القراءة</string>
+    <string name="tts_reading_now">تتم القراءة الصوتية الآن...</string>
+    <string name="tts_speed_slow">بطيء 0.85x</string>
+    <string name="tts_speed_normal">عادي 1x</string>
+    <string name="tts_speed_fast">سريع 1.25x</string>
+    <string name="open_website_in_app">تصفّح الموقع داخل التطبيق</string>
+    <string name="open_website_external">فتح في المتصفح</string>
+    <string name="website_portal_subtitle">edutech-mindset.pages.dev</string>
+</resources>

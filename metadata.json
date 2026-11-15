@@ -1,0 +1,6 @@
+{
+  "name": "EduTech Mindset",
+  "description": "تطبيق EduTech Mindset (عقلية التعليم والتكنولوجيا) بإدارة الأستاذ باسل الفقعاوي — منصة تعليمية متكاملة بتخزين محلي ودعم كامل للوسائط وموشن جرافك احترافي.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
