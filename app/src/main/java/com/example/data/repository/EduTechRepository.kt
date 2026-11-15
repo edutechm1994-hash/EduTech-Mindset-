@@ -635,7 +635,7 @@ class EduTechRepository(
         attachedUri: Uri? = null,
         existingMediaUri: String = "",
         existingMediaType: String = "",
-    ) {
+    ): Long {
         var finalUri = existingMediaUri
         var finalType = existingMediaType
         if (attachedUri != null) {
@@ -653,10 +653,11 @@ class EduTechRepository(
             attachedMediaType = finalType,
             updatedAt = System.currentTimeMillis(),
         )
-        dao.insertNote(note)
+        val savedId = dao.insertNote(note)
         if (existingId == null || existingId == 0L) {
             awardXp(15, incrementCompletedLesson = false)
         }
+        return if (existingId != null && existingId > 0L) existingId else savedId
     }
 
     suspend fun toggleNotePin(note: StudyNoteEntity) {
@@ -669,6 +670,8 @@ class EduTechRepository(
         }
         dao.deleteNoteById(note.id)
     }
+
+    suspend fun getLearnerStatsOnce(): LearnerStatsEntity = dao.getLearnerStatsOnce() ?: LearnerStatsEntity()
 
     suspend fun getInternalStorageUsedBytes(): Long = mediaStorage.calculateTotalInternalStorageBytes()
 

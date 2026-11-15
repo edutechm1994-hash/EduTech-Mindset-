@@ -1,0 +1,191 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net — default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Hardened Primitives ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidTimestamp(ts) {
+      return ts is timestamp && ts <= request.time;
+    }
+
+    // --- Entity Validation Helpers ---
+    function isValidUserProfile(data, userId) {
+      return data.userId is string &&
+             data.userId == userId &&
+             data.userId == request.auth.uid &&
+             data.learnerName is string &&
+             data.learnerName.size() >= 1 &&
+             data.learnerName.size() <= 80 &&
+             data.xpPoints is int &&
+             data.xpPoints >= 0 &&
+             data.xpPoints <= 10000000 &&
+             data.streakDays is int &&
+             data.streakDays >= 0 &&
+             data.streakDays <= 10000 &&
+             data.completedLessons is int &&
+             data.completedLessons >= 0 &&
+             data.completedLessons <= 100000 &&
+             data.preferredTheme is string &&
+             data.preferredTheme in ['SYSTEM', 'LIGHT', 'DARK'] &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidStudyNote(data, userId) {
+      return data.userId is string &&
+             data.userId == userId &&
+             data.userId == request.auth.uid &&
+             data.localNoteId is int &&
+             data.localNoteId >= 0 &&
+             data.title is string &&
+             data.title.size() >= 1 &&
+             data.title.size() <= 160 &&
+             data.content is string &&
+             data.content.size() >= 1 &&
+             data.content.size() <= 5000 &&
+             (!('tag' in data) || (data.tag is string && data.tag.size() <= 60)) &&
+             data.accentKey is string &&
+             data.accentKey.size() >= 1 &&
+             data.accentKey.size() <= 24 &&
+             data.isPinned is bool &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidCourseProgress(data, userId) {
+      return data.userId is string &&
+             data.userId == userId &&
+             data.userId == request.auth.uid &&
+             data.courseTitle is string &&
+             data.courseTitle.size() >= 1 &&
+             data.courseTitle.size() <= 180 &&
+             data.category is string &&
+             data.category.size() >= 1 &&
+             data.category.size() <= 80 &&
+             data.progressPercent is int &&
+             data.progressPercent >= 0 &&
+             data.progressPercent <= 100 &&
+             data.isCompleted is bool &&
+             data.isBookmarked is bool &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    // --- Collection Rules ---
+    match /users/{userId} {
+      allow get: if isValidId(userId) && isOwner(userId);
+      allow list: if false;
+
+      allow create: if isValidId(userId) &&
+                       isOwner(userId) &&
+                       incoming().keys().hasAll([
+                         'userId', 'learnerName', 'xpPoints', 'streakDays',
+                         'completedLessons', 'preferredTheme', 'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'userId', 'learnerName', 'xpPoints', 'streakDays',
+                         'completedLessons', 'preferredTheme', 'createdAt', 'updatedAt'
+                       ]) &&
+                       isValidUserProfile(incoming(), userId);
+
+      allow update: if isValidId(userId) &&
+                       isOwner(userId) &&
+                       isValidUserProfile(incoming(), userId) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().diff(existing()).affectedKeys().hasOnly([
+                         'learnerName', 'xpPoints', 'streakDays',
+                         'completedLessons', 'preferredTheme', 'updatedAt'
+                       ]);
+
+      allow delete: if isValidId(userId) && isOwner(userId);
+
+      match /notes/{noteId} {
+        allow get: if isValidId(userId) && isValidId(noteId) && isOwner(userId);
+        allow list: if isValidId(userId) && isOwner(userId);
+
+        allow create: if isValidId(userId) &&
+                         isValidId(noteId) &&
+                         isOwner(userId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'localNoteId', 'title', 'content',
+                           'accentKey', 'isPinned', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'localNoteId', 'title', 'content', 'tag',
+                           'accentKey', 'isPinned', 'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidStudyNote(incoming(), userId);
+
+        allow update: if isValidId(userId) &&
+                         isValidId(noteId) &&
+                         isOwner(userId) &&
+                         isValidStudyNote(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'localNoteId', 'title', 'content', 'tag',
+                           'accentKey', 'isPinned', 'updatedAt'
+                         ]);
+
+        allow delete: if isValidId(userId) && isValidId(noteId) && isOwner(userId);
+      }
+
+      match /course_progress/{progressId} {
+        allow get: if isValidId(userId) && isValidId(progressId) && isOwner(userId);
+        allow list: if isValidId(userId) && isOwner(userId);
+
+        allow create: if isValidId(userId) &&
+                         isValidId(progressId) &&
+                         isOwner(userId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'courseTitle', 'category', 'progressPercent',
+                           'isCompleted', 'isBookmarked', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'courseTitle', 'category', 'progressPercent',
+                           'isCompleted', 'isBookmarked', 'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidCourseProgress(incoming(), userId);
+
+        allow update: if isValidId(userId) &&
+                         isValidId(progressId) &&
+                         isOwner(userId) &&
+                         isValidCourseProgress(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'courseTitle', 'category', 'progressPercent',
+                           'isCompleted', 'isBookmarked', 'updatedAt'
+                         ]);
+
+        allow delete: if isValidId(userId) && isValidId(progressId) && isOwner(userId);
+      }
+    }
+  }
+}

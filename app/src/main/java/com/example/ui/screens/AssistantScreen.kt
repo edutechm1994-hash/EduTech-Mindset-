@@ -213,11 +213,11 @@ fun AssistantScreen(
                 }
             }
 
-            // 2. Transparent Firebase AI Notice Banner
+            // 2. Live Firebase AI Logic Status Banner
             Surface(
                 shape = MaterialTheme.shapes.medium,
-                color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.55f),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.45f)),
+                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)),
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Row(
@@ -226,15 +226,15 @@ fun AssistantScreen(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     Icon(
-                        Icons.Default.Info,
+                        Icons.Default.AutoAwesome,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.secondary,
+                        tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(20.dp),
                     )
                     Text(
-                        text = "المساعد يعمل بالردود المحلية التجريبية؛ تتطلب قدرات Gemini السحابية تفعيل Firebase.",
+                        text = "المساعد متصل بـ Firebase AI Logic (Gemini) ومؤمّن عبر App Check لخدمتك في الوقت الحقيقي.",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
                     )
                 }
             }

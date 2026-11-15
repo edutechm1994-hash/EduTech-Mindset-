@@ -33,10 +33,12 @@ import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.BrightnessAuto
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.LocalFireDepartment
+import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.MotionPhotosOn
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.PhotoCamera
@@ -82,6 +84,10 @@ import com.example.ui.viewmodel.EduTechUiState
 @Composable
 fun MentorAcademyScreen(
     state: EduTechUiState,
+    firebaseUserName: String?,
+    firebaseUserEmail: String?,
+    cloudSyncStatus: com.example.ui.viewmodel.CloudSyncStatus,
+    onSignOut: () -> Unit,
     onUpdateLearnerName: (String) -> Unit,
     onUpdateFounderAvatar: (Uri) -> Unit,
     onSetThemeMode: (com.example.data.local.ThemeMode) -> Unit,
@@ -561,26 +567,78 @@ fun MentorAcademyScreen(
                 }
             }
 
-            // 4. Local Storage Integrity Status
+            // 4. Cloud Firestore Sync, Google Account & Local Storage Status
             item {
                 Surface(
                     shape = MaterialTheme.shapes.large,
                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Row(
+                    Column(
                         modifier = Modifier.padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        Icon(Icons.Default.Storage, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary)
-                        Column {
-                            Text("حالة التخزين المحلي على الهاتف: نشط ✓", style = MaterialTheme.typography.titleSmall)
-                            Text(
-                                text = "${state.courses.size} مسار • ${state.mediaAssets.size} ملف وسائط • ${state.notes.size} ملاحظة • ${formatBytesCompact(state.internalStorageBytes)} وسائط مستوردة",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            Icon(Icons.Default.CloudDone, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = firebaseUserName?.takeIf { it.isNotBlank() } ?: "حساب Google الموثّق",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                                if (!firebaseUserEmail.isNullOrBlank()) {
+                                    Text(
+                                        text = firebaseUserEmail,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                                Text(
+                                    text = when (cloudSyncStatus) {
+                                        is com.example.ui.viewmodel.CloudSyncStatus.Syncing -> "جاري الاتصال بـ Cloud Firestore..."
+                                        is com.example.ui.viewmodel.CloudSyncStatus.Synced ->
+                                            "مزامنة Firestore نشطة ✓ (${cloudSyncStatus.cloudNotesCount} ملاحظة • ${cloudSyncStatus.cloudProgressCount} تقدم مسار)"
+                                        is com.example.ui.viewmodel.CloudSyncStatus.Error ->
+                                            "تنبيه المزامنة: ${cloudSyncStatus.message}"
+                                    },
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = if (cloudSyncStatus is com.example.ui.viewmodel.CloudSyncStatus.Error) {
+                                        MaterialTheme.colorScheme.error
+                                    } else {
+                                        MaterialTheme.colorScheme.primary
+                                    },
+                                )
+                            }
+                        }
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            Icon(Icons.Default.Storage, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary)
+                            Column {
+                                Text("التخزين المحلي على الهاتف: نشط ✓", style = MaterialTheme.typography.titleSmall)
+                                Text(
+                                    text = "${state.courses.size} مسار • ${state.mediaAssets.size} ملف وسائط • ${state.notes.size} ملاحظة • ${formatBytesCompact(state.internalStorageBytes)} وسائط مستوردة",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+
+                        OutlinedButton(
+                            onClick = onSignOut,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("sign_out_button"),
+                        ) {
+                            Icon(Icons.Default.Logout, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("تسجيل الخروج من الحساب")
                         }
                     }
                 }

@@ -49,16 +49,20 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.credentials.CredentialManager
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavDestination.Companion.hasRoute
@@ -68,9 +72,15 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
+import com.example.data.local.AppPreferences
+import com.example.data.local.UserPreferencesRepository
+import com.example.firebase.authStateFlow
+import com.example.firebase.configureAppCheck
+import com.example.firebase.signOutFromGoogleAndFirebase
 import com.example.ui.components.MediaPlayerModal
 import com.example.ui.components.QuantumMotionBackground
 import com.example.ui.screens.AssistantScreen
+import com.example.ui.screens.AuthSignInScreen
 import com.example.ui.screens.CourseDetailDialog
 import com.example.ui.screens.CourseModuleScreen
 import com.example.ui.screens.CoursesScreen
@@ -84,7 +94,10 @@ import com.example.ui.screens.WebsitePortalScreen
 import com.example.ui.screens.WelcomeMotionScreen
 import com.example.ui.theme.EduTechMindsetTheme
 import com.example.ui.viewmodel.AssistantChatMessage
+import com.example.ui.viewmodel.CloudSyncStatus
 import com.example.ui.viewmodel.EduTechViewModel
+import com.google.firebase.Firebase
+import com.google.firebase.auth.auth
 import kotlinx.serialization.Serializable
 
 @Serializable object HomeRoute
@@ -109,87 +122,120 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Must execute first before setContent, ViewModels, or any Firebase call
+        configureAppCheck(this, intent)
         deepLinkWebsiteUrl = extractEduTechLink(intent)
         enableEdgeToEdge()
         setContent {
-            val viewModel: EduTechViewModel = viewModel()
-            val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-            val showWelcome by viewModel.showWelcome.collectAsStateWithLifecycle()
-            val activeMedia by viewModel.activeMediaPlayer.collectAsStateWithLifecycle()
-            val selectedCourseWithModules by viewModel.selectedCourseWithModules.collectAsStateWithLifecycle()
-            val selectedModuleWithProgress by viewModel.selectedModuleWithProgress.collectAsStateWithLifecycle()
-            val filteredCoursesWithModules by viewModel.filteredCoursesWithModules.collectAsStateWithLifecycle()
-            val matchedModules by viewModel.matchedModules.collectAsStateWithLifecycle()
-            val courseSearchQuery by viewModel.courseSearchQuery.collectAsStateWithLifecycle()
-            val selectedCourseCategory by viewModel.selectedCourseCategory.collectAsStateWithLifecycle()
-            val assistantMessages by viewModel.assistantMessages.collectAsStateWithLifecycle()
-            val isAssistantThinking by viewModel.isAssistantThinking.collectAsStateWithLifecycle()
-            val latestSpokenReply by viewModel.latestSpokenReply.collectAsStateWithLifecycle()
-            val snackbarMessage by viewModel.snackbarMessage.collectAsStateWithLifecycle()
+            val prefsRepo = remember(applicationContext) { UserPreferencesRepository(applicationContext) }
+            val rootPrefs by prefsRepo.preferencesFlow.collectAsStateWithLifecycle(initialValue = AppPreferences())
+            val currentUser by Firebase.auth.authStateFlow().collectAsStateWithLifecycle(initialValue = Firebase.auth.currentUser)
 
             val isSystemDark = isSystemInDarkTheme()
-            val effectiveDarkTheme = uiState.preferences.resolveDarkTheme(isSystemDark)
+            val effectiveDarkTheme = rootPrefs.resolveDarkTheme(isSystemDark)
 
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
                 EduTechMindsetTheme(
                     darkTheme = effectiveDarkTheme,
-                    dynamicColor = uiState.preferences.dynamicColorEnabled,
+                    dynamicColor = rootPrefs.dynamicColorEnabled,
                 ) {
-                    EduTechAppShell(
-                        uiState = uiState,
-                        showWelcome = showWelcome,
-                        activeMedia = activeMedia,
-                        selectedCourseWithModules = selectedCourseWithModules,
-                        selectedModuleWithProgress = selectedModuleWithProgress,
-                        filteredCoursesWithModules = filteredCoursesWithModules,
-                        matchedModules = matchedModules,
-                        courseSearchQuery = courseSearchQuery,
-                        selectedCourseCategory = selectedCourseCategory,
-                        assistantMessages = assistantMessages,
-                        isAssistantThinking = isAssistantThinking,
-                        latestSpokenReply = latestSpokenReply,
-                        snackbarMessage = snackbarMessage,
-                        onClearSnackbar = viewModel::clearSnackbar,
-                        onShowNotice = viewModel::showNotice,
-                        onDismissWelcome = viewModel::dismissWelcome,
-                        onReplayWelcome = viewModel::replayWelcome,
-                        onSetThemeMode = viewModel::setThemeMode,
-                        onToggleDarkTheme = viewModel::toggleDarkTheme,
-                        onToggleDynamicColor = viewModel::setDynamicColor,
-                        onToggleHighMotion = viewModel::toggleHighMotion,
-                        onUpdateLearnerName = viewModel::updateLearnerName,
-                        onUpdateFounderAvatar = viewModel::updateFounderAvatar,
-                        onSearchQueryChange = viewModel::updateCourseSearchQuery,
-                        onCategoryChange = viewModel::updateCourseCategory,
-                        onOpenCourse = viewModel::openCourseDetail,
-                        onOpenMatchedModule = viewModel::openCourseAndModule,
-                        onCloseCourse = viewModel::closeCourseDetail,
-                        onUpdateCourseProgress = viewModel::updateCourseProgress,
-                        onToggleCourseComplete = viewModel::toggleCourseComplete,
-                        onToggleModuleComplete = viewModel::toggleModuleCompleted,
-                        onOpenModule = viewModel::openModuleScreen,
-                        onCloseModule = viewModel::closeModuleScreen,
-                        onModulePlaybackPositionChanged = viewModel::updateModulePlaybackPosition,
-                        onAttachLocalVideoToModule = viewModel::attachLocalVideoToModule,
-                        onAttachVideoUrlToModule = viewModel::attachVideoUrlToModule,
-                        onToggleCourseBookmark = viewModel::toggleCourseBookmark,
-                        onAddCustomCourse = viewModel::addCustomCourse,
-                        onDeleteCourse = viewModel::deleteCourse,
-                        onOpenMedia = viewModel::openMediaPlayer,
-                        onCloseMedia = viewModel::closeMediaPlayer,
-                        onImportLocalMedia = viewModel::importLocalMedia,
-                        onAddExternalLink = viewModel::addExternalMediaLink,
-                        onToggleMediaBookmark = viewModel::toggleMediaBookmark,
-                        onDeleteMedia = viewModel::deleteMedia,
-                        onSaveNote = viewModel::saveNote,
-                        onToggleNotePin = viewModel::toggleNotePin,
-                        onDeleteNote = viewModel::deleteNote,
-                        onSendAssistantPrompt = viewModel::sendAssistantPrompt,
-                        onOpenSuggestedCourse = viewModel::openSuggestedCourseById,
-                        onCompleteFocusSession = viewModel::completeFocusSession,
-                        pendingDeepLinkUrl = deepLinkWebsiteUrl,
-                        onConsumeDeepLinkUrl = { deepLinkWebsiteUrl = null },
-                    )
+                    val user = currentUser
+                    if (user == null) {
+                        AuthSignInScreen(
+                            onAuthSuccess = { /* AuthStateListener drives transition reactively */ }
+                        )
+                    } else {
+                        val uid = user.uid
+                        val context = LocalContext.current
+                        val coroutineScope = rememberCoroutineScope()
+                        val credentialManager = remember(context) { CredentialManager.create(context) }
+
+                        key(uid) {
+                            val viewModel: EduTechViewModel = viewModel(
+                                key = uid,
+                                factory = EduTechViewModel.factory(application, uid),
+                            )
+                            val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+                            val cloudSyncStatus by viewModel.cloudSyncStatus.collectAsStateWithLifecycle()
+                            val showWelcome by viewModel.showWelcome.collectAsStateWithLifecycle()
+                            val activeMedia by viewModel.activeMediaPlayer.collectAsStateWithLifecycle()
+                            val selectedCourseWithModules by viewModel.selectedCourseWithModules.collectAsStateWithLifecycle()
+                            val selectedModuleWithProgress by viewModel.selectedModuleWithProgress.collectAsStateWithLifecycle()
+                            val filteredCoursesWithModules by viewModel.filteredCoursesWithModules.collectAsStateWithLifecycle()
+                            val matchedModules by viewModel.matchedModules.collectAsStateWithLifecycle()
+                            val courseSearchQuery by viewModel.courseSearchQuery.collectAsStateWithLifecycle()
+                            val selectedCourseCategory by viewModel.selectedCourseCategory.collectAsStateWithLifecycle()
+                            val assistantMessages by viewModel.assistantMessages.collectAsStateWithLifecycle()
+                            val isAssistantThinking by viewModel.isAssistantThinking.collectAsStateWithLifecycle()
+                            val latestSpokenReply by viewModel.latestSpokenReply.collectAsStateWithLifecycle()
+                            val snackbarMessage by viewModel.snackbarMessage.collectAsStateWithLifecycle()
+
+                            EduTechAppShell(
+                                uiState = uiState,
+                                firebaseUserName = user.displayName,
+                                firebaseUserEmail = user.email,
+                                cloudSyncStatus = cloudSyncStatus,
+                                onSignOut = {
+                                    signOutFromGoogleAndFirebase(
+                                        credentialManager = credentialManager,
+                                        scope = coroutineScope,
+                                    )
+                                },
+                                showWelcome = showWelcome,
+                                activeMedia = activeMedia,
+                                selectedCourseWithModules = selectedCourseWithModules,
+                                selectedModuleWithProgress = selectedModuleWithProgress,
+                                filteredCoursesWithModules = filteredCoursesWithModules,
+                                matchedModules = matchedModules,
+                                courseSearchQuery = courseSearchQuery,
+                                selectedCourseCategory = selectedCourseCategory,
+                                assistantMessages = assistantMessages,
+                                isAssistantThinking = isAssistantThinking,
+                                latestSpokenReply = latestSpokenReply,
+                                snackbarMessage = snackbarMessage,
+                                onClearSnackbar = viewModel::clearSnackbar,
+                                onShowNotice = viewModel::showNotice,
+                                onDismissWelcome = viewModel::dismissWelcome,
+                                onReplayWelcome = viewModel::replayWelcome,
+                                onSetThemeMode = viewModel::setThemeMode,
+                                onToggleDarkTheme = viewModel::toggleDarkTheme,
+                                onToggleDynamicColor = viewModel::setDynamicColor,
+                                onToggleHighMotion = viewModel::toggleHighMotion,
+                                onUpdateLearnerName = viewModel::updateLearnerName,
+                                onUpdateFounderAvatar = viewModel::updateFounderAvatar,
+                                onSearchQueryChange = viewModel::updateCourseSearchQuery,
+                                onCategoryChange = viewModel::updateCourseCategory,
+                                onOpenCourse = viewModel::openCourseDetail,
+                                onOpenMatchedModule = viewModel::openCourseAndModule,
+                                onCloseCourse = viewModel::closeCourseDetail,
+                                onUpdateCourseProgress = viewModel::updateCourseProgress,
+                                onToggleCourseComplete = viewModel::toggleCourseComplete,
+                                onToggleModuleComplete = viewModel::toggleModuleCompleted,
+                                onOpenModule = viewModel::openModuleScreen,
+                                onCloseModule = viewModel::closeModuleScreen,
+                                onModulePlaybackPositionChanged = viewModel::updateModulePlaybackPosition,
+                                onAttachLocalVideoToModule = viewModel::attachLocalVideoToModule,
+                                onAttachVideoUrlToModule = viewModel::attachVideoUrlToModule,
+                                onToggleCourseBookmark = viewModel::toggleCourseBookmark,
+                                onAddCustomCourse = viewModel::addCustomCourse,
+                                onDeleteCourse = viewModel::deleteCourse,
+                                onOpenMedia = viewModel::openMediaPlayer,
+                                onCloseMedia = viewModel::closeMediaPlayer,
+                                onImportLocalMedia = viewModel::importLocalMedia,
+                                onAddExternalLink = viewModel::addExternalMediaLink,
+                                onToggleMediaBookmark = viewModel::toggleMediaBookmark,
+                                onDeleteMedia = viewModel::deleteMedia,
+                                onSaveNote = viewModel::saveNote,
+                                onToggleNotePin = viewModel::toggleNotePin,
+                                onDeleteNote = viewModel::deleteNote,
+                                onSendAssistantPrompt = viewModel::sendAssistantPrompt,
+                                onOpenSuggestedCourse = viewModel::openSuggestedCourseById,
+                                onCompleteFocusSession = viewModel::completeFocusSession,
+                                pendingDeepLinkUrl = deepLinkWebsiteUrl,
+                                onConsumeDeepLinkUrl = { deepLinkWebsiteUrl = null },
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -212,6 +258,10 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun EduTechAppShell(
     uiState: com.example.ui.viewmodel.EduTechUiState,
+    firebaseUserName: String?,
+    firebaseUserEmail: String?,
+    cloudSyncStatus: CloudSyncStatus,
+    onSignOut: () -> Unit,
     showWelcome: Boolean,
     activeMedia: com.example.data.local.MediaAssetEntity?,
     selectedCourseWithModules: com.example.data.local.CourseWithModules?,
@@ -445,6 +495,10 @@ private fun EduTechAppShell(
                         composable<MentorRoute> {
                             MentorAcademyScreen(
                                 state = uiState,
+                                firebaseUserName = firebaseUserName,
+                                firebaseUserEmail = firebaseUserEmail,
+                                cloudSyncStatus = cloudSyncStatus,
+                                onSignOut = onSignOut,
                                 onUpdateLearnerName = onUpdateLearnerName,
                                 onUpdateFounderAvatar = onUpdateFounderAvatar,
                                 onSetThemeMode = onSetThemeMode,

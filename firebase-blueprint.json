@@ -1,0 +1,67 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Learner profile, XP, streak, and appearance preference stored per authenticated user.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Firebase Auth UID of the user." },
+        "learnerName": { "type": "string", "description": "Display name of the learner." },
+        "xpPoints": { "type": "integer", "description": "Accumulated experience points." },
+        "streakDays": { "type": "integer", "description": "Learning streak in days." },
+        "completedLessons": { "type": "integer", "description": "Number of completed lessons." },
+        "preferredTheme": { "type": "string", "description": "Selected theme mode (SYSTEM, LIGHT, DARK)." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp on creation (FieldValue.serverTimestamp())." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp on update (FieldValue.serverTimestamp())." }
+      },
+      "required": ["userId", "learnerName", "xpPoints", "streakDays", "completedLessons", "preferredTheme", "createdAt", "updatedAt"]
+    },
+    "CloudStudyNote": {
+      "title": "CloudStudyNote",
+      "description": "User-authored study note synced to Firestore under the owner's user collection.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Firebase Auth UID of the owner." },
+        "localNoteId": { "type": "integer", "description": "Local Room primary key for bidirectional sync." },
+        "title": { "type": "string", "description": "Note title." },
+        "content": { "type": "string", "description": "Note body text." },
+        "tag": { "type": "string", "description": "Optional note category tag." },
+        "accentKey": { "type": "string", "description": "UI accent color key." },
+        "isPinned": { "type": "boolean", "description": "Whether the note is pinned." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp on creation." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp on update." }
+      },
+      "required": ["userId", "localNoteId", "title", "content", "accentKey", "isPinned", "createdAt", "updatedAt"]
+    },
+    "CloudCourseProgress": {
+      "title": "CloudCourseProgress",
+      "description": "Synced course progress and bookmark state per user.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Firebase Auth UID of the owner." },
+        "courseTitle": { "type": "string", "description": "Course title." },
+        "category": { "type": "string", "description": "Course category." },
+        "progressPercent": { "type": "integer", "description": "Progress percentage between 0 and 100." },
+        "isCompleted": { "type": "boolean", "description": "Completion flag." },
+        "isBookmarked": { "type": "boolean", "description": "Bookmark flag." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp on creation." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp on update." }
+      },
+      "required": ["userId", "courseTitle", "category", "progressPercent", "isCompleted", "isBookmarked", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Private learner profile document owned by the authenticated user."
+    },
+    "/users/{userId}/notes/{noteId}": {
+      "schema": { "$ref": "#/entities/CloudStudyNote" },
+      "description": "Private study notes synced per authenticated user."
+    },
+    "/users/{userId}/course_progress/{progressId}": {
+      "schema": { "$ref": "#/entities/CloudCourseProgress" },
+      "description": "Private course completion and bookmark progress per authenticated user."
+    }
+  }
+}

@@ -2,8 +2,13 @@ package com.example.ui.viewmodel
 
 import android.app.Application
 import android.net.Uri
-import androidx.lifecycle.AndroidViewModel
+import android.util.Log
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
+import com.example.R
 import com.example.data.local.AppPreferences
 import com.example.data.local.CourseEntity
 import com.example.data.local.CourseWithModules
@@ -15,21 +20,37 @@ import com.example.data.local.MediaKind
 import com.example.data.local.ModuleEntity
 import com.example.data.local.ModuleWithProgress
 import com.example.data.local.StudyNoteEntity
+import com.example.data.local.ThemeMode
 import com.example.data.local.UserPreferencesRepository
 import com.example.data.repository.AssistantRepository
+import com.example.data.repository.CloudSyncRepository
 import com.example.data.repository.EduTechRepository
+import com.example.data.repository.FirebaseAiAssistantRepository
 import com.example.data.repository.LocalLearningSnapshot
-import com.example.data.repository.LocalPlaceholderAssistantRepository
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.FirebaseFirestoreException
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+
+private const val TAG = "EduTechViewModel"
+
+sealed interface CloudSyncStatus {
+    data object Syncing : CloudSyncStatus
+    data class Synced(val cloudNotesCount: Int, val cloudProgressCount: Int) : CloudSyncStatus
+    data class Error(val message: String) : CloudSyncStatus
+}
 
 data class EduTechUiState(
     val isLoading: Boolean = true,
@@ -51,20 +72,12 @@ data class AssistantChatMessage(
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class EduTechViewModel(application: Application) : AndroidViewModel(application) {
-
-    private val database = EduTechDatabase.getInstance(application)
-    private val repository: EduTechRepository = EduTechRepository(
-        context = application,
-        courseDao = database.courseDao(),
-        moduleDao = database.moduleDao(),
-        progressDao = database.progressDao(),
-        dao = database.eduTechDao(),
-        prefsRepo = UserPreferencesRepository(application),
-        mediaStorage = LocalMediaStorageManager(application),
-    )
-
-    private val assistantRepository: AssistantRepository = LocalPlaceholderAssistantRepository()
+class EduTechViewModel(
+    private val repository: EduTechRepository,
+    private val cloudSyncRepository: CloudSyncRepository,
+    private val assistantRepository: AssistantRepository,
+    private val currentUserId: String,
+) : ViewModel() {
 
     private val _isLoading = MutableStateFlow(true)
     private val _internalStorageBytes = MutableStateFlow(0L)
@@ -133,12 +146,31 @@ class EduTechViewModel(application: Application) : AndroidViewModel(application)
         initialValue = null,
     )
 
+    val cloudSyncStatus: StateFlow<CloudSyncStatus> = combine(
+        cloudSyncRepository.observeStudyNotes(currentUserId),
+        cloudSyncRepository.observeCourseProgress(currentUserId),
+    ) { notes, progress ->
+        CloudSyncStatus.Synced(notes.size, progress.size) as CloudSyncStatus
+    }.catch { error ->
+        val firestoreError = generateSequence(error) { it.cause }
+            .filterIsInstance<FirebaseFirestoreException>()
+            .firstOrNull()
+        if (firestoreError == null && error is CancellationException) throw error
+        val rootError = firestoreError ?: error
+        Log.w(TAG, "Error observing cloud sync", rootError)
+        emit(CloudSyncStatus.Error(rootError.localizedMessage ?: "تعذّرت المزامنة مع Firestore"))
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = CloudSyncStatus.Syncing,
+    )
+
     private val _assistantMessages = MutableStateFlow(
         listOf(
             AssistantChatMessage(
-                text = "مرحباً بك في المساعد الشخصي والصوتي لمنصة EduTech Mindset! يمكنك التحدث بالميكروفون أو الكتابة للبحث في مساراتك، متابعة تقدمك، أو طلب خطة تعلّم.",
+                text = "مرحباً بك في المساعد الشخصي والصوتي لـ EduTech Mindset المدعوم بـ Gemini عبر Firebase AI Logic! اسألني عن مساراتك، خطتك الدراسية، أو تلخيص ملاحظاتك.",
                 isFromUser = false,
-                isSampleNotice = true,
+                isSampleNotice = false,
             )
         )
     )
@@ -183,6 +215,64 @@ class EduTechViewModel(application: Application) : AndroidViewModel(application)
             repository.ensureSeeded()
             refreshStorageSize()
             _isLoading.value = false
+            syncInitialSnapshotToCloud()
+        }
+    }
+
+    private suspend fun syncInitialSnapshotToCloud() {
+        try {
+            val stats = repository.getLearnerStatsOnce()
+            val prefs = repository.preferences.first()
+            cloudSyncRepository.upsertUserProfile(
+                learnerName = stats.learnerName,
+                xpPoints = stats.xpPoints.toLong(),
+                streakDays = stats.streakDays.toLong(),
+                completedLessons = stats.completedLessons.toLong(),
+                preferredTheme = prefs.themeMode.name,
+            )
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "Initial cloud profile sync deferred: ${e.message}")
+        }
+    }
+
+    private fun syncProfileAsync() {
+        viewModelScope.launch {
+            try {
+                val stats = repository.getLearnerStatsOnce()
+                val prefs = repository.preferences.first()
+                cloudSyncRepository.upsertUserProfile(
+                    learnerName = stats.learnerName,
+                    xpPoints = stats.xpPoints.toLong(),
+                    streakDays = stats.streakDays.toLong(),
+                    completedLessons = stats.completedLessons.toLong(),
+                    preferredTheme = prefs.themeMode.name,
+                )
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w(TAG, "Profile sync error: ${e.message}")
+            }
+        }
+    }
+
+    private fun syncCourseAsync(course: CourseEntity, overrideProgress: Int? = null, overrideCompleted: Boolean? = null, overrideBookmarked: Boolean? = null) {
+        viewModelScope.launch {
+            try {
+                cloudSyncRepository.upsertCourseProgress(
+                    progressId = "course_${course.id}",
+                    courseTitle = course.title,
+                    category = course.category,
+                    progressPercent = overrideProgress ?: course.progressPercent,
+                    isCompleted = overrideCompleted ?: course.isCompleted,
+                    isBookmarked = overrideBookmarked ?: course.isBookmarked,
+                )
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w(TAG, "Course sync error: ${e.message}")
+            }
         }
     }
 
@@ -213,21 +303,76 @@ class EduTechViewModel(application: Application) : AndroidViewModel(application)
         _isAssistantThinking.value = true
 
         viewModelScope.launch {
+            val snapshot = LocalLearningSnapshot(
+                stats = uiState.value.stats,
+                courses = uiState.value.coursesWithModules,
+                notes = uiState.value.notes,
+            )
             try {
-                val snapshot = LocalLearningSnapshot(
-                    stats = uiState.value.stats,
-                    courses = uiState.value.coursesWithModules,
-                    notes = uiState.value.notes,
-                )
-                val reply = assistantRepository.ask(clean, snapshot)
-                val botMsg = AssistantChatMessage(
-                    text = reply.text,
+                if (assistantRepository is FirebaseAiAssistantRepository) {
+                    val streamMsgId = System.nanoTime()
+                    val accumulated = StringBuilder()
+                    var inserted = false
+
+                    assistantRepository.askStream(clean, snapshot).collect { chunk ->
+                        accumulated.append(chunk)
+                        val currentText = accumulated.toString()
+                        if (!inserted) {
+                            inserted = true
+                            _assistantMessages.value = _assistantMessages.value + AssistantChatMessage(
+                                id = streamMsgId,
+                                text = currentText,
+                                isFromUser = false,
+                                isSampleNotice = false,
+                            )
+                        } else {
+                            _assistantMessages.value = _assistantMessages.value.map { msg ->
+                                if (msg.id == streamMsgId) msg.copy(text = currentText) else msg
+                            }
+                        }
+                    }
+
+                    val finalText = accumulated.toString().trim()
+                    if (finalText.isBlank()) {
+                        throw IllegalStateException("لم يُرجع نموذج Gemini أي نص. حاول إعادة صياغة السؤال.")
+                    }
+                    val suggestedId = snapshot.courses.firstOrNull {
+                        clean.contains(it.course.title, ignoreCase = true) ||
+                            finalText.contains(it.course.title, ignoreCase = true)
+                    }?.course?.id
+                    val completedMsg = AssistantChatMessage(
+                        id = streamMsgId,
+                        text = finalText,
+                        isFromUser = false,
+                        isSampleNotice = false,
+                        suggestedCourseId = suggestedId,
+                    )
+                    _assistantMessages.value = _assistantMessages.value.map { msg ->
+                        if (msg.id == streamMsgId) completedMsg else msg
+                    }
+                    _latestSpokenReply.value = completedMsg
+                } else {
+                    val reply = assistantRepository.ask(clean, snapshot)
+                    val botMsg = AssistantChatMessage(
+                        text = reply.text,
+                        isFromUser = false,
+                        isSampleNotice = reply.isSampleNotice,
+                        suggestedCourseId = reply.suggestedCourseId,
+                    )
+                    _assistantMessages.value = _assistantMessages.value + botMsg
+                    _latestSpokenReply.value = botMsg
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e(TAG, "Assistant prompt failed", e)
+                val errText = e.localizedMessage ?: "تعذّر الحصول على رد من المساعد الذكي."
+                _snackbarMessage.value = errText
+                _assistantMessages.value = _assistantMessages.value + AssistantChatMessage(
+                    text = "تعذّر إتمام الطلب عبر Gemini: $errText",
                     isFromUser = false,
-                    isSampleNotice = reply.isSampleNotice,
-                    suggestedCourseId = reply.suggestedCourseId,
+                    isSampleNotice = false,
                 )
-                _assistantMessages.value = _assistantMessages.value + botMsg
-                _latestSpokenReply.value = botMsg
             } finally {
                 _isAssistantThinking.value = false
             }
@@ -283,15 +428,17 @@ class EduTechViewModel(application: Application) : AndroidViewModel(application)
         _snackbarMessage.value = message
     }
 
-    fun setThemeMode(mode: com.example.data.local.ThemeMode) {
+    fun setThemeMode(mode: ThemeMode) {
         viewModelScope.launch {
             repository.setThemeMode(mode)
+            syncProfileAsync()
         }
     }
 
     fun toggleDarkTheme(enabled: Boolean) {
         viewModelScope.launch {
             repository.toggleDarkTheme(enabled)
+            syncProfileAsync()
         }
     }
 
@@ -310,7 +457,8 @@ class EduTechViewModel(application: Application) : AndroidViewModel(application)
     fun updateLearnerName(name: String) {
         viewModelScope.launch {
             repository.updateLearnerName(name)
-            _snackbarMessage.value = "تم تحديث اسم المتعلّم محلياً"
+            syncProfileAsync()
+            _snackbarMessage.value = "تم تحديث اسم المتعلّم ومزامنته سحابياً"
         }
     }
 
@@ -320,6 +468,8 @@ class EduTechViewModel(application: Application) : AndroidViewModel(application)
                 repository.updateFounderAvatarFromUri(uri)
                 refreshStorageSize()
                 _snackbarMessage.value = "تم حفظ صورة الأستاذ باسل أشرف الفقعاوي محلياً"
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _snackbarMessage.value = "تعذّر تحديث الصورة: ${e.localizedMessage ?: "خطأ"}"
             }
@@ -329,6 +479,8 @@ class EduTechViewModel(application: Application) : AndroidViewModel(application)
     fun toggleModuleCompleted(course: CourseEntity, module: ModuleEntity, currentlyCompleted: Boolean) {
         viewModelScope.launch {
             repository.toggleModuleCompleted(course, module, currentlyCompleted)
+            syncCourseAsync(course)
+            syncProfileAsync()
             if (!currentlyCompleted) {
                 _snackbarMessage.value = "تم إتمام «${module.title}» (+25 XP)"
             }
@@ -352,6 +504,8 @@ class EduTechViewModel(application: Application) : AndroidViewModel(application)
                 repository.attachVideoToModule(module, localUri = uri, externalUrl = null)
                 refreshStorageSize()
                 _snackbarMessage.value = "تم حفظ الفيديو محلياً وربطه بالوحدة (+10 XP)"
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _snackbarMessage.value = "تعذّر حفظ الفيديو: ${e.localizedMessage ?: "خطأ"}"
             }
@@ -369,6 +523,8 @@ class EduTechViewModel(application: Application) : AndroidViewModel(application)
     fun updateCourseProgress(course: CourseEntity, progress: Int) {
         viewModelScope.launch {
             repository.updateCourseProgress(course, progress)
+            syncCourseAsync(course, overrideProgress = progress, overrideCompleted = progress >= 100)
+            syncProfileAsync()
             if (progress >= 100 && !course.isCompleted) {
                 _snackbarMessage.value = "أحسنت! تم إتمام الدرس واكتساب +50 XP"
             }
@@ -379,6 +535,12 @@ class EduTechViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             val willComplete = !course.isCompleted
             repository.toggleCourseCompleted(course)
+            syncCourseAsync(
+                course,
+                overrideProgress = if (willComplete) 100 else 50,
+                overrideCompleted = willComplete,
+            )
+            syncProfileAsync()
             if (willComplete) {
                 _snackbarMessage.value = "رائع! تم إكمال المسار وإضافة +50 XP"
             }
@@ -388,6 +550,7 @@ class EduTechViewModel(application: Application) : AndroidViewModel(application)
     fun toggleCourseBookmark(course: CourseEntity) {
         viewModelScope.launch {
             repository.toggleCourseBookmark(course)
+            syncCourseAsync(course, overrideBookmarked = !course.isBookmarked)
         }
     }
 
@@ -409,7 +572,8 @@ class EduTechViewModel(application: Application) : AndroidViewModel(application)
                 lessonContent = lessonContent,
                 durationMinutes = durationMinutes,
             )
-            _snackbarMessage.value = "تم حفظ الدرس الجديد في قاعدة البيانات المحلية (+20 XP)"
+            syncProfileAsync()
+            _snackbarMessage.value = "تم حفظ الدرس الجديد (+20 XP)"
         }
     }
 
@@ -434,7 +598,10 @@ class EduTechViewModel(application: Application) : AndroidViewModel(application)
             try {
                 val saved = repository.importLocalMediaFromUri(uri, title, category, description)
                 refreshStorageSize()
+                syncProfileAsync()
                 _snackbarMessage.value = "تم حفظ «${saved.title}» محلياً على جهازك (+15 XP)"
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _snackbarMessage.value = "تعذّر حفظ الملف: ${e.localizedMessage ?: "خطأ غير متوقع"}"
             }
@@ -451,7 +618,8 @@ class EduTechViewModel(application: Application) : AndroidViewModel(application)
         if (title.isBlank() || url.isBlank()) return
         viewModelScope.launch {
             repository.addExternalMediaLink(title, url, kind, category, description)
-            _snackbarMessage.value = "تمت إضافة رابط الوسائط إلى مكتبتك المحلية (+10 XP)"
+            syncProfileAsync()
+            _snackbarMessage.value = "تمت إضافة رابط الوسائط إلى مكتبتك (+10 XP)"
         }
     }
 
@@ -482,9 +650,10 @@ class EduTechViewModel(application: Application) : AndroidViewModel(application)
         if (title.isBlank() && content.isBlank()) return
         viewModelScope.launch {
             try {
-                repository.saveNote(
+                val finalTitle = title.ifBlank { "ملاحظة سريعة" }
+                val savedId = repository.saveNote(
                     existingId = existingId,
-                    title = title.ifBlank { "ملاحظة سريعة" },
+                    title = finalTitle,
                     content = content,
                     tag = tag,
                     accentKey = accentKey,
@@ -493,11 +662,25 @@ class EduTechViewModel(application: Application) : AndroidViewModel(application)
                     existingMediaType = existingMediaType,
                 )
                 refreshStorageSize()
-                _snackbarMessage.value = if (existingId == null || existingId == 0L) {
-                    "تم حفظ الملاحظة محلياً (+15 XP)"
-                } else {
-                    "تم تحديث الملاحظة"
+                runCatching {
+                    cloudSyncRepository.upsertStudyNote(
+                        noteId = "note_$savedId",
+                        localNoteId = savedId,
+                        title = finalTitle,
+                        content = content.ifBlank { finalTitle },
+                        tag = tag.ifBlank { null },
+                        accentKey = accentKey,
+                        isPinned = false,
+                    )
+                    syncProfileAsync()
                 }
+                _snackbarMessage.value = if (existingId == null || existingId == 0L) {
+                    "تم حفظ الملاحظة ومزامنتها سحابياً (+15 XP)"
+                } else {
+                    "تم تحديث الملاحظة ومزامنتها"
+                }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _snackbarMessage.value = "تعذّر حفظ المرفق: ${e.localizedMessage ?: "خطأ"}"
             }
@@ -507,6 +690,17 @@ class EduTechViewModel(application: Application) : AndroidViewModel(application)
     fun toggleNotePin(note: StudyNoteEntity) {
         viewModelScope.launch {
             repository.toggleNotePin(note)
+            runCatching {
+                cloudSyncRepository.upsertStudyNote(
+                    noteId = "note_${note.id}",
+                    localNoteId = note.id,
+                    title = note.title,
+                    content = note.content,
+                    tag = note.tag.ifBlank { null },
+                    accentKey = note.accentKey,
+                    isPinned = !note.isPinned,
+                )
+            }
         }
     }
 
@@ -514,6 +708,9 @@ class EduTechViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             repository.deleteNote(note)
             refreshStorageSize()
+            runCatching {
+                cloudSyncRepository.deleteStudyNote("note_${note.id}")
+            }
             _snackbarMessage.value = "تم حذف الملاحظة"
         }
     }
@@ -521,7 +718,34 @@ class EduTechViewModel(application: Application) : AndroidViewModel(application)
     fun completeFocusSession() {
         viewModelScope.launch {
             repository.rewardFocusSession()
+            syncProfileAsync()
             _snackbarMessage.value = "أحسنت! اكتملت جلسة التركيز وأُضيف +15 XP"
         }
+    }
+
+    companion object {
+        fun factory(app: Application, currentUserId: String): ViewModelProvider.Factory =
+            viewModelFactory {
+                initializer {
+                    val database = EduTechDatabase.getInstance(app)
+                    val repository = EduTechRepository(
+                        context = app,
+                        courseDao = database.courseDao(),
+                        moduleDao = database.moduleDao(),
+                        progressDao = database.progressDao(),
+                        dao = database.eduTechDao(),
+                        prefsRepo = UserPreferencesRepository(app),
+                        mediaStorage = LocalMediaStorageManager(app),
+                    )
+                    val databaseId = app.getString(R.string.firestore_database_id)
+                    val firestore = FirebaseFirestore.getInstance(databaseId)
+                    EduTechViewModel(
+                        repository = repository,
+                        cloudSyncRepository = CloudSyncRepository(firestore),
+                        assistantRepository = FirebaseAiAssistantRepository(),
+                        currentUserId = currentUserId,
+                    )
+                }
+            }
     }
 }
