@@ -369,56 +369,29 @@ private fun WelcomeBrandSlide(
                 animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
             ),
         ) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically,
+            Surface(
+                shape = RoundedCornerShape(32.dp),
+                color = Color(0xFFFDFEFE),
+                border = BorderStroke(
+                    width = 2.5.dp,
+                    brush = Brush.linearGradient(
+                        listOf(
+                            MaterialTheme.colorScheme.primary,
+                            MaterialTheme.colorScheme.secondary,
+                        )
+                    ),
+                ),
+                shadowElevation = if (highMotionEnabled) 16.dp else 6.dp,
+                modifier = Modifier.size(176.dp),
             ) {
-                Surface(
-                    shape = RoundedCornerShape(28.dp),
-                    color = Color(0xFFFDFEFE),
-                    border = BorderStroke(
-                        width = 2.dp,
-                        brush = Brush.linearGradient(
-                            listOf(
-                                MaterialTheme.colorScheme.primary,
-                                MaterialTheme.colorScheme.secondary,
-                            )
-                        ),
-                    ),
-                    shadowElevation = if (highMotionEnabled) 14.dp else 6.dp,
-                    modifier = Modifier.size(144.dp),
-                ) {
-                    Image(
-                        painter = painterResource(id = R.drawable.img_edutech_official_logo),
-                        contentDescription = "شعار EduTech Mindset الرسمي",
-                        contentScale = ContentScale.Fit,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(8.dp),
-                    )
-                }
-                Surface(
-                    shape = RoundedCornerShape(28.dp),
-                    color = Color(0xFF071D35),
-                    border = BorderStroke(
-                        width = 2.dp,
-                        brush = Brush.linearGradient(
-                            listOf(
-                                MaterialTheme.colorScheme.secondary,
-                                MaterialTheme.colorScheme.primary,
-                            )
-                        ),
-                    ),
-                    shadowElevation = if (highMotionEnabled) 14.dp else 6.dp,
-                    modifier = Modifier.size(116.dp),
-                ) {
-                    Image(
-                        painter = painterResource(id = R.drawable.edutech_brand_emblem_1794771055994),
-                        contentDescription = "رمز EduTech Mindset التعليمي",
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize(),
-                    )
-                }
+                Image(
+                    painter = painterResource(id = R.drawable.img_edutech_official_logo),
+                    contentDescription = "شعار EduTech Mindset عقلية التعليم والتكنولوجيا إدارة الأستاذ باسل الفقعاوي",
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(10.dp),
+                )
             }
         }
 
