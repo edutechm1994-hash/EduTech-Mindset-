@@ -51,15 +51,16 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.credentials.CredentialManager
+import coil.compose.AsyncImage
 import com.example.R
 import com.example.firebase.attemptAutoSignIn
 import com.example.firebase.onGoogleSignInClicked
 import com.example.ui.components.QuantumMotionBackground
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -75,6 +76,8 @@ fun AuthSignInScreen(
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) {
+        // Allow initial SurfaceSyncGroup frame transaction to complete before CredentialManager IPC
+        delay(200L)
         attemptAutoSignIn(
             context = context,
             credentialManager = credentialManager,
@@ -130,8 +133,8 @@ fun AuthSignInScreen(
                     shadowElevation = 14.dp,
                     modifier = Modifier.size(144.dp),
                 ) {
-                    Image(
-                        painter = painterResource(id = R.drawable.img_edutech_official_logo),
+                    AsyncImage(
+                        model = R.drawable.img_edutech_official_logo,
                         contentDescription = "شعار EduTech Mindset",
                         contentScale = ContentScale.Fit,
                         modifier = Modifier

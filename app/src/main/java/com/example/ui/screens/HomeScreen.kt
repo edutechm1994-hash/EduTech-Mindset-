@@ -67,10 +67,10 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
 import com.example.R
 import com.example.data.local.CourseEntity
 import com.example.data.local.MediaAssetEntity
@@ -140,8 +140,8 @@ fun HomeScreen(
                                 border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.secondary),
                                 modifier = Modifier.size(48.dp),
                             ) {
-                                Image(
-                                    painter = painterResource(id = R.drawable.img_edutech_official_logo),
+                                AsyncImage(
+                                    model = R.drawable.img_edutech_official_logo,
                                     contentDescription = "شعار EduTech Mindset الرسمي",
                                     contentScale = ContentScale.Fit,
                                     modifier = Modifier
@@ -228,8 +228,8 @@ fun HomeScreen(
                             .fillMaxWidth()
                             .height(216.dp),
                     ) {
-                        Image(
-                            painter = painterResource(id = R.drawable.edutech_hero_banner_1794771056331),
+                        AsyncImage(
+                            model = R.drawable.edutech_hero_banner_1794771056331,
                             contentDescription = "خلفية EduTech Mindset",
                             contentScale = ContentScale.Crop,
                             modifier = Modifier.fillMaxSize(),
@@ -660,8 +660,8 @@ private fun HomeCoursePreviewCard(
                     .fillMaxWidth()
                     .height(112.dp),
             ) {
-                Image(
-                    painter = painterResource(id = coverRes),
+                AsyncImage(
+                    model = coverRes,
                     contentDescription = course.title,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize(),

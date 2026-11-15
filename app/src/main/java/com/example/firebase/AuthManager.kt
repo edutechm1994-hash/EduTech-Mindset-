@@ -27,6 +27,7 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 
 private const val TAG = "AuthManager"
 
@@ -68,7 +69,14 @@ fun attemptAutoSignIn(
 
     scope.launch {
         try {
-            val result = credentialManager.getCredential(context, request)
+            val result = withTimeoutOrNull(3_500L) {
+                credentialManager.getCredential(context, request)
+            }
+            if (result == null) {
+                Log.d(TAG, "Silent auto sign-in timed out")
+                onUnauthenticated()
+                return@launch
+            }
             val credential = result.credential
             if (credential is CustomCredential && credential.type == TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
                 val googleIdToken = GoogleIdTokenCredential.createFrom(credential.data).idToken

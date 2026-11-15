@@ -79,7 +79,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -132,9 +131,9 @@ fun WelcomeMotionScreen(
         // 1. Live Canvas Quantum Motion Background
         QuantumMotionBackground(animate = highMotionEnabled)
 
-        // 2. Parallax Atmospheric Hero Backdrop
-        Image(
-            painter = painterResource(id = R.drawable.edutech_hero_banner_1794771056331),
+        // 2. Parallax Atmospheric Hero Backdrop (decoded asynchronously off main thread)
+        AsyncImage(
+            model = R.drawable.edutech_hero_banner_1794771056331,
             contentDescription = null,
             contentScale = ContentScale.Crop,
             modifier = Modifier
@@ -384,8 +383,8 @@ private fun WelcomeBrandSlide(
                 shadowElevation = if (highMotionEnabled) 16.dp else 6.dp,
                 modifier = Modifier.size(176.dp),
             ) {
-                Image(
-                    painter = painterResource(id = R.drawable.img_edutech_official_logo),
+                AsyncImage(
+                    model = R.drawable.img_edutech_official_logo,
                     contentDescription = "شعار EduTech Mindset عقلية التعليم والتكنولوجيا إدارة الأستاذ باسل الفقعاوي",
                     contentScale = ContentScale.Fit,
                     modifier = Modifier
@@ -478,27 +477,15 @@ private fun WelcomeMentorSlide(
                         shape = CircleShape,
                     )
             )
-            if (founderAvatarUri.isNotBlank()) {
-                AsyncImage(
-                    model = founderAvatarUri,
-                    contentDescription = "الأستاذ باسل أشرف الفقعاوي",
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier
-                        .size(126.dp)
-                        .clip(CircleShape)
-                        .border(2.dp, MaterialTheme.colorScheme.secondary, CircleShape),
-                )
-            } else {
-                Image(
-                    painter = painterResource(id = R.drawable.img_instructor_avatar_1794764865940),
-                    contentDescription = "الأستاذ باسل أشرف الفقعاوي",
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier
-                        .size(126.dp)
-                        .clip(CircleShape)
-                        .border(2.dp, MaterialTheme.colorScheme.secondary, CircleShape),
-                )
-            }
+            AsyncImage(
+                model = founderAvatarUri.ifBlank { R.drawable.img_instructor_avatar_1794764865940 },
+                contentDescription = "الأستاذ باسل أشرف الفقعاوي",
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .size(126.dp)
+                    .clip(CircleShape)
+                    .border(2.dp, MaterialTheme.colorScheme.secondary, CircleShape),
+            )
         }
 
         Surface(
@@ -586,8 +573,8 @@ private fun WelcomeMediaPowerSlide(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Image(
-                        painter = painterResource(id = R.drawable.img_track_media_lab_1794764865682),
+                    AsyncImage(
+                        model = R.drawable.img_track_media_lab_1794764865682,
                         contentDescription = "استوديو الوسائط",
                         contentScale = ContentScale.Crop,
                         modifier = Modifier
@@ -595,8 +582,8 @@ private fun WelcomeMediaPowerSlide(
                             .height(92.dp)
                             .clip(MaterialTheme.shapes.medium),
                     )
-                    Image(
-                        painter = painterResource(id = R.drawable.img_track_future_tech_1794764866174),
+                    AsyncImage(
+                        model = R.drawable.img_track_future_tech_1794764866174,
                         contentDescription = "المسارات الذكية",
                         contentScale = ContentScale.Crop,
                         modifier = Modifier

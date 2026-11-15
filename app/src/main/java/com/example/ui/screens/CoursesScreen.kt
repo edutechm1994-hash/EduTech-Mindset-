@@ -57,12 +57,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import coil.compose.AsyncImage
 import com.example.R
 import com.example.data.local.CourseEntity
 import com.example.data.local.MediaAssetEntity
@@ -286,8 +286,8 @@ private fun CourseListCard(
                     .fillMaxWidth()
                     .height(126.dp),
             ) {
-                Image(
-                    painter = painterResource(id = coverRes),
+                AsyncImage(
+                    model = coverRes,
                     contentDescription = course.title,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize(),

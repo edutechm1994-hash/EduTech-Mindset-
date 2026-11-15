@@ -11,7 +11,7 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
@@ -100,13 +100,15 @@ fun EduTechMindsetTheme(
 
     val view = LocalView.current
     if (!view.isInEditMode) {
-        SideEffect {
-            val window = (view.context as? Activity)?.window
-            if (window != null) {
-                WindowCompat.getInsetsController(window, view).apply {
-                    isAppearanceLightStatusBars = !darkTheme
-                    isAppearanceLightNavigationBars = !darkTheme
-                }
+        LaunchedEffect(view, darkTheme) {
+            val window = (view.context as? Activity)?.window ?: return@LaunchedEffect
+            val controller = WindowCompat.getInsetsController(window, view)
+            val wantLight = !darkTheme
+            if (controller.isAppearanceLightStatusBars != wantLight) {
+                controller.isAppearanceLightStatusBars = wantLight
+            }
+            if (controller.isAppearanceLightNavigationBars != wantLight) {
+                controller.isAppearanceLightNavigationBars = wantLight
             }
         }
     }

@@ -129,7 +129,9 @@ class MainActivity : ComponentActivity() {
         setContent {
             val prefsRepo = remember(applicationContext) { UserPreferencesRepository(applicationContext) }
             val rootPrefs by prefsRepo.preferencesFlow.collectAsStateWithLifecycle(initialValue = AppPreferences())
-            val currentUser by Firebase.auth.authStateFlow().collectAsStateWithLifecycle(initialValue = Firebase.auth.currentUser)
+            val authFlow = remember { Firebase.auth.authStateFlow() }
+            val initialUser = remember { Firebase.auth.currentUser }
+            val currentUser by authFlow.collectAsStateWithLifecycle(initialValue = initialUser)
 
             val isSystemDark = isSystemInDarkTheme()
             val effectiveDarkTheme = rootPrefs.resolveDarkTheme(isSystemDark)

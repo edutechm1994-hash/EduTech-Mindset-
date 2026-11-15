@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
@@ -42,6 +43,7 @@ fun QuantumMotionBackground(
     val primary = MaterialTheme.colorScheme.primary
     val secondary = MaterialTheme.colorScheme.secondary
     val bg = MaterialTheme.colorScheme.background
+    val ribbonPaths = remember { List(3) { Path() } }
 
     val infiniteTransition = rememberInfiniteTransition(label = "quantum_bg")
     val phase by infiniteTransition.animateFloat(
@@ -92,7 +94,8 @@ fun QuantumMotionBackground(
 
         // Flowing kinetic energy ribbons
         for (waveIdx in 0..2) {
-            val path = Path()
+            val path = ribbonPaths[waveIdx]
+            path.reset()
             val yBase = size.height * (0.30f + waveIdx * 0.22f)
             val amp = size.height * (0.045f + waveIdx * 0.015f)
             val freq = 1.4f + waveIdx * 0.4f

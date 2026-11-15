@@ -73,7 +73,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -134,8 +133,8 @@ fun MentorAcademyScreen(
                                 .fillMaxWidth()
                                 .height(104.dp),
                         ) {
-                            Image(
-                                painter = painterResource(id = R.drawable.edutech_hero_banner_1794771056331),
+                            AsyncImage(
+                                model = R.drawable.edutech_hero_banner_1794771056331,
                                 contentDescription = "هوية EduTech Mindset",
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier.fillMaxSize(),
@@ -161,29 +160,16 @@ fun MentorAcademyScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(14.dp),
                         ) {
-                            if (state.preferences.founderAvatarUri.isNotBlank()) {
-                                AsyncImage(
-                                    model = state.preferences.founderAvatarUri,
-                                    contentDescription = "الأستاذ باسل أشرف الفقعاوي",
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier
-                                        .size(78.dp)
-                                        .clip(CircleShape)
-                                        .border(2.dp, MaterialTheme.colorScheme.secondary, CircleShape)
-                                        .clickable { showFullPortrait = true },
-                                )
-                            } else {
-                                Image(
-                                    painter = painterResource(id = R.drawable.img_instructor_avatar_1794764865940),
-                                    contentDescription = "الأستاذ باسل أشرف الفقعاوي",
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier
-                                        .size(78.dp)
-                                        .clip(CircleShape)
-                                        .border(2.dp, MaterialTheme.colorScheme.secondary, CircleShape)
-                                        .clickable { showFullPortrait = true },
-                                )
-                            }
+                            AsyncImage(
+                                model = state.preferences.founderAvatarUri.ifBlank { R.drawable.img_instructor_avatar_1794764865940 },
+                                contentDescription = "الأستاذ باسل أشرف الفقعاوي",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .size(78.dp)
+                                    .clip(CircleShape)
+                                    .border(2.dp, MaterialTheme.colorScheme.secondary, CircleShape)
+                                    .clickable { showFullPortrait = true },
+                            )
                             Column(modifier = Modifier.weight(1f)) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
@@ -218,8 +204,8 @@ fun MentorAcademyScreen(
                                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                                 modifier = Modifier.size(56.dp),
                             ) {
-                                Image(
-                                    painter = painterResource(id = R.drawable.img_edutech_official_logo),
+                                AsyncImage(
+                                    model = R.drawable.img_edutech_official_logo,
                                     contentDescription = "شعار EduTech Mindset",
                                     contentScale = ContentScale.Fit,
                                     modifier = Modifier
@@ -657,27 +643,15 @@ fun MentorAcademyScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        if (state.preferences.founderAvatarUri.isNotBlank()) {
-                            AsyncImage(
-                                model = state.preferences.founderAvatarUri,
-                                contentDescription = "الأستاذ باسل أشرف الفقعاوي",
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(340.dp)
-                                    .clip(MaterialTheme.shapes.large),
-                            )
-                        } else {
-                            Image(
-                                painter = painterResource(id = R.drawable.img_basel_founder_portrait),
-                                contentDescription = "الأستاذ باسل أشرف الفقعاوي",
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(340.dp)
-                                    .clip(MaterialTheme.shapes.large),
-                            )
-                        }
+                        AsyncImage(
+                            model = state.preferences.founderAvatarUri.ifBlank { R.drawable.img_basel_founder_portrait },
+                            contentDescription = "الأستاذ باسل أشرف الفقعاوي",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(340.dp)
+                                .clip(MaterialTheme.shapes.large),
+                        )
                         Text("الأستاذ باسل أشرف الفقعاوي", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                         Text("مؤسس ومدير منصة EduTech Mindset", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
                         OutlinedButton(onClick = { showFullPortrait = false }, modifier = Modifier.fillMaxWidth()) {
