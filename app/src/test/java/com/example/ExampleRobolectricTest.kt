@@ -273,4 +273,26 @@ class ExampleRobolectricTest {
         assertEquals(com.example.data.local.ThemeMode.DARK, saved.themeMode)
         assertEquals(true, saved.resolveDarkTheme(isSystemDark = false))
     }
+
+    @Test
+    fun `dummy dashboard data provides valid categorized learning modules`() {
+        val snapshot = com.example.ui.dashboard.EduTechDummyDashboardData.createInitialSnapshot()
+        assertTrue(snapshot.categories.size >= 4)
+        assertTrue(snapshot.modules.size >= 8)
+
+        val categoryIds = snapshot.categories.map { it.id }.toSet()
+        assertEquals(snapshot.categories.size, categoryIds.size)
+
+        snapshot.modules.forEach { module ->
+            assertTrue("Unknown category ${module.categoryId}", module.categoryId in categoryIds)
+            assertTrue(module.progressPercent in 0..100)
+            assertTrue(module.durationMinutes > 0)
+            assertTrue(module.lessonsCount > 0)
+        }
+
+        val grouped = snapshot.modules.groupBy { it.categoryId }
+        snapshot.categories.forEach { category ->
+            assertTrue("Category ${category.id} has no modules", !grouped[category.id].isNullOrEmpty())
+        }
+    }
 }

@@ -42,6 +42,7 @@ import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.PermMedia
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Psychology
+import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -92,6 +93,7 @@ fun HomeScreen(
     onNavigateMentor: () -> Unit,
     onNavigateToolkit: () -> Unit,
     onNavigateWebsite: () -> Unit,
+    onNavigateDashboard: () -> Unit = {},
 ) {
     var visible by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { visible = true }
@@ -391,6 +393,58 @@ fun HomeScreen(
                                 )
                             }
                         }
+                    }
+                }
+            }
+
+            // 3a. Categorized Learning Modules Dashboard Card
+            item {
+                Surface(
+                    onClick = onNavigateDashboard,
+                    shape = MaterialTheme.shapes.large,
+                    color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.44f),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.45f)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("home_open_dashboard"),
+                ) {
+                    Row(
+                        modifier = Modifier.padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.secondary,
+                            modifier = Modifier.size(44.dp),
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Default.School,
+                                    contentDescription = "لوحة الوحدات التعليمية المصنّفة",
+                                    tint = MaterialTheme.colorScheme.onSecondary,
+                                )
+                            }
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "لوحة الوحدات المصنّفة (Dashboard)",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                            )
+                            Text(
+                                text = "الذكاء الاصطناعي • القيادة الرقمية • الوسائط • STEM",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                        Icon(
+                            imageVector = Icons.Default.MenuBook,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.secondary,
+                        )
                     }
                 }
             }

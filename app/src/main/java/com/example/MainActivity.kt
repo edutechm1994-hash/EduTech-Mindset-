@@ -79,6 +79,7 @@ import com.example.firebase.configureAppCheck
 import com.example.firebase.signOutFromGoogleAndFirebase
 import com.example.ui.components.MediaPlayerModal
 import com.example.ui.components.QuantumMotionBackground
+import com.example.ui.dashboard.LearningModulesDashboardScreen
 import com.example.ui.screens.AssistantScreen
 import com.example.ui.screens.AuthSignInScreen
 import com.example.ui.screens.CourseDetailDialog
@@ -107,6 +108,7 @@ import kotlinx.serialization.Serializable
 @Serializable object NotesRoute
 @Serializable object MentorRoute
 @Serializable object ToolkitRoute
+@Serializable object DashboardRoute
 @Serializable data class WebsitePortalRoute(val url: String = EDUTECH_WEBSITE_URL)
 
 private data class NavTabItem<T : Any>(
@@ -448,6 +450,7 @@ private fun EduTechAppShell(
                                 onNavigateMentor = { navController.navigate(MentorRoute) { launchSingleTop = true } },
                                 onNavigateToolkit = { navController.navigate(ToolkitRoute) { launchSingleTop = true } },
                                 onNavigateWebsite = { navController.navigate(WebsitePortalRoute()) { launchSingleTop = true } },
+                                onNavigateDashboard = { navController.navigate(DashboardRoute) { launchSingleTop = true } },
                             )
                         }
                         composable<CoursesRoute> {
@@ -520,6 +523,11 @@ private fun EduTechAppShell(
                                 onCompleteFocusSession = onCompleteFocusSession,
                                 onOpenWebsitePortal = { navController.navigate(WebsitePortalRoute()) { launchSingleTop = true } },
                                 onShowNotice = onShowNotice,
+                            )
+                        }
+                        composable<DashboardRoute> {
+                            LearningModulesDashboardScreen(
+                                onBack = { navController.popBackStack() },
                             )
                         }
                         composable<WebsitePortalRoute> { backStackEntry ->
